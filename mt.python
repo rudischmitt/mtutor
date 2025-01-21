@@ -1,0 +1,279 @@
+import random
+from fpdf import FPDF
+from fpdf.enums import XPos, YPos
+import argparse
+
+
+def generate_addition_question_as_lines(digit_count, show_result=False):
+    lower_limit = 10**(digit_count - 1)
+    upper_limit = 10**digit_count - 1
+
+    num1 = random.randint(lower_limit, upper_limit)
+    num2 = random.randint(lower_limit, upper_limit)
+    result = num1 + num2
+
+    max_width = max(len(str(num1)), len(str(num2)))
+    formatted_num1 = f" {num1:>{max_width}}"
+    formatted_num2 = f"+{num2:>{max_width - 1}}"  # Operator included
+    separator = "-" * (max_width + 1)  # Adjust separator to start under the operator
+    blank_result = "." * (max_width + 1)
+
+    if show_result and len(str(result)) > max_width:
+        formatted_result = f"{result:>{max_width}}"
+    elif show_result:
+        formatted_result = f" {result:>{max_width}}"
+    else:
+        formatted_result = blank_result
+
+    return [formatted_num1, formatted_num2, separator, formatted_result]
+
+
+def generate_subtraction_question_as_lines(digit_count, show_result=False):
+    lower_limit = 10**(digit_count - 1)
+    upper_limit = 10**digit_count - 1
+
+    num1 = random.randint(lower_limit, upper_limit)
+    num2 = random.randint(lower_limit, upper_limit)
+    result = num1 - num2
+
+    max_width = max(len(str(num1)), len(str(num2)))
+    formatted_num1 = f" {num1:>{max_width}}"
+    formatted_num2 = f"-{num2:>{max_width - 1}}"  # Operator included
+    separator = "-" * (max_width + 1)  # Adjust separator to start under the operator
+    blank_result = "." * (max_width + 1)
+
+    if show_result and len(str(result)) > max_width:
+        formatted_result = f"{result:>{max_width}}"
+    elif show_result:
+        formatted_result = f" {result:>{max_width}}"
+    else:
+        formatted_result = blank_result
+
+    return [formatted_num1, formatted_num2, separator, formatted_result]
+
+
+def generate_multiplication_question_as_lines(digit_count, show_result=False):
+    lower_limit = 10**(digit_count - 1)
+    upper_limit = 10**digit_count - 1
+
+    num1 = random.randint(lower_limit, upper_limit)
+    num2 = random.randint(1, 99)   # hardcoded between single digit and double digit number
+    result = num1 * num2
+
+    # For multiplication, result may be longer than each operand
+    max_width = max(len(str(num1)), len(str(num2)), len(str(result)))
+    
+    formatted_num1 = f" {num1:>{max_width}}"
+    formatted_num2 = f"x {num2:>{max_width-1}}"  # Operator included
+    separator = "-" * (max_width + 1)  # Adjust separator to start under the operator
+    blank_result = "." * (max_width + 1)
+
+    if show_result:
+        formatted_result = f" {result:>{max_width}}"
+    else:
+        formatted_result = blank_result
+
+    return [formatted_num1, formatted_num2, separator, formatted_result]
+
+
+def generate_division_question_as_lines(digit_count, show_result=False):
+    lower_limit = 10**(digit_count - 1)
+    upper_limit = 10**digit_count - 1
+
+    num1 = random.randint(lower_limit, upper_limit)
+    num2 = random.randint(1, 99)   # hardcoded between single digit and double digit number
+    result_quotient, result_remainder = divmod(num1, num2)
+
+    # For division, we write "Divisor /‾ Divident" (i.e., Divident is divided by Divisor)
+    max_width = len(str(num1)) + len(str(num2))
+    
+    # num1 / num2 (integer division)
+    formatted_expression = f"{num2} /‾ {num1:>{max_width}}"
+    separator = "-" * (max_width + 6)  # Adjust separator to start under the operator
+    blank_result = "." * (max_width + 6)
+    blank_remainder = "R:" + "." * (max_width + 4)
+
+    if show_result:
+        formatted_quotient = f"{result_quotient:>{max_width+6}}"
+        formatted_remainder = f"R:{result_remainder:>{max_width+4}}"
+    else:
+        formatted_quotient = blank_result
+        formatted_remainder = blank_remainder
+
+    return [formatted_expression, separator, formatted_quotient, formatted_remainder]
+
+
+def generate_question_page_multi_line(operation, digit_count, questions_per_row, rows_per_page, show_result=False):
+    """
+    Generates a page of questions for the specified operation in multi-line format.
+
+    Args:
+        operation (str): Math operation ('A', 'S', 'M', 'D') for Add, Subtract, Multiply, Divide.
+        digit_count (int): Number of digits for operands.
+        questions_per_row (int): Number of questions per row.
+        rows_per_page (int): Number of rows per page.
+        show_result (bool): Whether to include the results for each question.
+
+    Returns:
+        list: A list of formatted lines representing the question page.
+    """
+    # Mapping of operations to their respective question generators
+    question_generators = {
+        'A': generate_addition_question_as_lines,
+        'S': generate_subtraction_question_as_lines,
+        'M': generate_multiplication_question_as_lines,
+        'D': generate_division_question_as_lines
+    }
+
+    # Ensure the operation is valid
+    if operation not in question_generators:
+        raise ValueError(f"Invalid operation '{operation}'. Must be one of 'A', 'S', 'M', 'D'.")
+
+    # Select the appropriate question generator
+    question_generator = question_generators[operation]
+
+    # Generate all questions
+    total_questions = questions_per_row * rows_per_page
+    question_list = [
+        question_generator(digit_count, show_result) for _ in range(total_questions)
+    ]
+
+    # Format the questions into rows and columns
+    page_output = []
+    for row in range(rows_per_page):
+        row_start = row * questions_per_row
+        row_end = row_start + questions_per_row
+        row_questions = question_list[row_start:row_end]
+
+        # Combine lines for each question row
+        for line_index in range(4):  # Each question has 4 lines
+            combined_line = " " * 8  # Space between questions
+            combined_line = combined_line.join(
+                question[line_index] for question in row_questions
+            )
+            page_output.append(combined_line)
+
+        # Add a blank line after each group of questions
+        page_output.append("")
+
+    return page_output
+
+def write_to_pdf(pdf_file, exercise_output, solution_output):
+    """
+    Writes the exercise and solution outputs into a PDF with Unicode support and updated syntax.
+    """
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_margins(10, 10, 10)  # Ensure sufficient margins
+
+    # Add a Unicode-compatible font (e.g., DejaVu Sans Mono)
+    pdf.add_font("DejaVu", style="", fname="/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf")  # Removed "uni"
+    pdf.set_font("DejaVu", size=12)  # Use the Unicode-compatible font
+
+    # Add Exercise Page
+    pdf.add_page()
+    pdf.cell(0, 10, "Exercise Sheet", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)  # Updated from "ln=True"
+    pdf.ln(10)
+    for line in exercise_output:
+        pdf.multi_cell(190, 10, line, align="L")  # Ensure left alignment
+        pdf.set_x(pdf.l_margin)  # Reset cursor to the left margin
+
+    # Add Solution Page
+    pdf.add_page()
+    pdf.cell(0, 10, "Solution Sheet", align="C", new_x=XPos.LMARGIN, new_y=YPos.NEXT)  # Updated from "ln=True"
+    pdf.ln(10)
+    for line in solution_output:
+        pdf.multi_cell(190, 10, line, align="L")  # Ensure left alignment
+        pdf.set_x(pdf.l_margin)  # Reset cursor to the left margin
+
+    # Output PDF
+    pdf.output(pdf_file)
+
+def process_command_line_args():
+    """
+    Process command-line arguments for the Math Tutor application.
+
+    Returns:
+        dict: A dictionary containing the parsed arguments.
+    """
+    parser = argparse.ArgumentParser(description="Math Tutor Argument Parser")
+
+    # Command-line arguments with short and long versions
+    parser.add_argument(
+        "-s", "--seed", type=int, default=54,
+        help="Seed value for random number generation (default: 54)"
+    )
+    parser.add_argument(
+        "-d", "--digits", type=int, default=2,
+        help="Number of digits for operands (default: 2)"
+    )
+    parser.add_argument(
+        "-q", "--questions-per-row", type=int, default=3,
+        help="Number of questions per row (default: 3)"
+    )
+    parser.add_argument(
+        "-r", "--rows-per-page", type=int, default=5,
+        help="Number of rows per page (default: 5)"
+    )
+    parser.add_argument(
+        "-f", "--file", type=str, default="math_worksheet.pdf",
+        help="Output PDF file name (default: math_worksheet.pdf)"
+    )
+    parser.add_argument(
+        "-o", "--operation", type=str, choices=['A', 'S', 'M', 'D'], default='A',
+        help="Math operation to use: A (Add), S (Subtract), M (Multiply), D (Divide). Default: A (Add)"
+    )
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Return parsed arguments as a dictionary
+    return {
+        "seed_value": args.seed,
+        "digit_count": args.digits,
+        "questions_per_row": args.questions_per_row,
+        "rows_per_page": args.rows_per_page,
+        "pdf_file": args.file,
+        "operation": args.operation
+    }
+
+# Main Program
+if __name__ == "__main__":
+    # Parse command-line arguments
+    args = process_command_line_args()
+
+    # Assign arguments to variables
+    seed_value = args["seed_value"]
+    digit_count = args["digit_count"]
+    questions_per_row = args["questions_per_row"]
+    rows_per_page = args["rows_per_page"]
+    pdf_file = args["pdf_file"]
+    operation = args["operation"]
+
+    # Example: Print the parsed arguments
+    print("Seed Value:", seed_value)
+    print("Digit Count:", digit_count)
+    print("Questions Per Row:", questions_per_row)
+    print("Rows Per Page:", rows_per_page)
+    print("PDF File:", pdf_file)
+    print("Operation:", operation)
+
+    # Generate Exercise Sheet
+    random.seed(seed_value)
+    exercise_output = generate_question_page_multi_line(operation, digit_count, questions_per_row, rows_per_page, show_result=False)
+
+    print("Exercise Sheet:")
+    for line in exercise_output:
+        print(line)
+        
+    # Generate Solution Sheet
+    random.seed(seed_value)
+    solution_output = generate_question_page_multi_line(operation, digit_count, questions_per_row, rows_per_page, show_result=True)
+
+    print("\nSolution Sheet:")
+    for line in solution_output:
+        print(line)
+
+    # Write to PDF
+    write_to_pdf(pdf_file, exercise_output, solution_output)
+    print(f"\nPDF written to {pdf_file}")
